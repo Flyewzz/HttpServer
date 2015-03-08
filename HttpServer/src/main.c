@@ -6,10 +6,13 @@
 //  Copyright (c) 2015 Alexey Halaidzhy. All rights reserved.
 //
 
-#include <stdio.h>
+#include "serverconfig.h"
 
-int main(int argc, const char * argv[]) {
-    // insert code here...
-    printf("Hello, World!\n");
+int main(int argc, char *argv[]) {
+    if (!setup_input_args(argc, argv)) {
+        usage(argv[0]);
+        return 0;
+    }
+    free_memory_for_input_args();
     return 0;
 }
