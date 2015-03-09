@@ -9,13 +9,10 @@
 //
 #ifndef HttpServer_serverconfig_h
 #define HttpServer_serverconfig_h
-#include <stdio.h>
-
-typedef enum {false, true} bool;
+#include "common.h"
 
 void usage(const char *const);
 bool setup_root_dir(const char *const);
 bool setup_cores(const char *const);
 char setup_input_args(int, char *[]);
-void free_memory_for_input_args();
 #endif

@@ -7,15 +7,6 @@
 //
 
 #include "serverconfig.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <getopt.h>
-#include <errno.h>
-#include <limits.h>
-
-char *ROOTDIR = NULL;
-int CORES = 0;
 
 void usage(const char *const filename) {
     printf("Usage: %s\n"
@@ -27,7 +18,6 @@ bool setup_root_dir(const char *const root_dir) {
     char absolute_path[PATH_MAX + 1];
     realpath(root_dir, absolute_path);
     if (!access(absolute_path, X_OK)) {
-        ROOTDIR = (char *)malloc((strlen(absolute_path) + 1) * sizeof(char));
         strcpy(ROOTDIR, absolute_path);
         printf("ROOTDIR setted to '%s'\n", ROOTDIR);
         return true;
@@ -72,7 +62,7 @@ bool setup_cores(const char *const cores) {
 char setup_input_args(int argc, char *argv[]) {
     bool r_exists = false;
     bool c_exists = false;
-    while (1) {
+    while (true) {
         int c;
         if ((c = getopt(argc, argv, "r:c:")) == -1) {
             break;
@@ -98,8 +88,4 @@ char setup_input_args(int argc, char *argv[]) {
         }
     }
     return r_exists && c_exists;
-}
-
-void free_memory_for_input_args() {
-    free(ROOTDIR);
 }
