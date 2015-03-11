@@ -7,33 +7,8 @@
 //
 #include "common.h"
 #include "evserver.h"
+#include "httphandler.h"
 #include <netinet/in.h>
-
-void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
-    struct sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    int client_sd;
-    struct ev_io *w_client = (struct ev_io *)malloc(sizeof(struct ev_io));
-    if (EV_ERROR & revents) {
-        if (DEBUG_MODE) {
-            perror("Got invalid event\n");
-        }
-        return;
-    }
-    client_sd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_len);
-    if (client_sd == -1) {
-        if (DEBUG_MODE) {
-            perror("Accept error\n");
-        }
-        return;
-    }
-    if (DEBUG_MODE) {
-        printf("Successfully connected with client with fd = %d on worker %d\n", client_sd, getpid());
-    }
-
-    ev_io_init(w_client, read_cb, client_sd, EV_READ);
-    ev_io_start(loop, w_client);
-}
 
 void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
     char buffer[BUFFER_SIZE];
@@ -46,7 +21,7 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         return;
     }
     read = recv(watcher->fd, buffer, BUFFER_SIZE, 0);
-
+    
     if (DEBUG_MODE) {
         printf("read = %zd\n", read);
     }
@@ -67,9 +42,51 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         return;
     }
     else {
-        printf("message: %s\n", buffer);
+        if (DEBUG_MODE) {
+            printf("request: %s\n", buffer);
+        }
     }
-    send(watcher->fd, "HTTP/1.1 200 OK\nContent-Length:3\n\n123", 100, 0);
+    void **response = get_response(buffer);
+    if (response[0]) {
+        printf("response_headers: '%s'\n", response[0]);
+        send(watcher->fd, (char *)response[0], strlen((char *)response[0]), 0);
+    }
+    if (response[1]) {
+        struct http_response *resp = (struct http_response *)response[1];
+        printf("data_fd: %d, data_size: %lld\n", resp->data_fd, resp->data_size);
+        do_sendfile(watcher->fd, resp->data_fd, 0, resp->data_size);
+    }
+    ev_io_stop(loop, watcher);
+    close(watcher->fd);
+    free(response);
+}
+
+void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    int client_sd;
+    struct ev_io *w_client = (struct ev_io *)malloc(sizeof(struct ev_io));
+    if (EV_ERROR & revents) {
+        if (DEBUG_MODE) {
+            perror("Got invalid event\n");
+        }
+        return;
+    }
+    client_sd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_len);
+    if (client_sd == -1) {
+        if (DEBUG_MODE) {
+            perror("Accept error\n");
+        }
+        return;
+    }
+    bool flag = true;
+    setsockopt(client_sd, SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag));
+    if (DEBUG_MODE) {
+        printf("Successfully connected with client with fd = %d on worker %d\n", client_sd, getpid());
+    }
+
+    ev_io_init(w_client, read_cb, client_sd, EV_READ);
+    ev_io_start(loop, w_client);
 }
 
 int set_nonblock(int sock, bool flag) {

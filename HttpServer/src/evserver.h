@@ -11,7 +11,5 @@
 #define HttpServer_evserver_h
 #include "ev.h"
 
-void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
-void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents);
 void start_server();
 #endif

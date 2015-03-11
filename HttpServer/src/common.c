@@ -12,5 +12,5 @@ const bool DEBUG_MODE = true;
 char ROOTDIR[PATH_MAX + 1];
 int CORES = 0;
 const int SERVER_PORT = 80;
-const int CONNECTION_QUEUE_SIZE = 10;
+const int CONNECTION_QUEUE_SIZE = 100;
 const int BUFFER_SIZE = 1024;
