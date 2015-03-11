@@ -51,8 +51,8 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         printf("response_headers: '%s'\n", response[0]);
         send(watcher->fd, (char *)response[0], strlen((char *)response[0]), 0);
     }
-    if (response[1]) {
-        struct http_response *resp = (struct http_response *)response[1];
+    struct http_response *resp = (struct http_response *)response[1];
+    if (resp->data_fd != -1) {
         printf("data_fd: %d, data_size: %lld\n", resp->data_fd, resp->data_size);
         do_sendfile(watcher->fd, resp->data_fd, 0, resp->data_size);
     }

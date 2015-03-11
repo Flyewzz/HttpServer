@@ -263,27 +263,21 @@ off_t do_sendfile(int out_fd, int in_fd, off_t offset, off_t count) {
     off_t bytes_sent;
     off_t total_bytes_sent = 0;
     printf("arght: %d", in_fd);
-    if (in_fd != -1) {
-        while (total_bytes_sent < count) {
-            off_t len = count - total_bytes_sent;
-            if ((bytes_sent = sendfile(in_fd, out_fd, offset, &len, NULL, 0)) <= 0) {
-                if (errno == EINTR || errno == EAGAIN) {
-                    //  Interrupted system call/try again
-                    //  Just skip to the top of the loop abd try again
-                    continue;
-                }
-                printf("Sendfile error, errno = %d", errno);
-                close(in_fd);
-                return -1;
+    while (total_bytes_sent < count) {
+        off_t len = count - total_bytes_sent;
+        if ((bytes_sent = sendfile(in_fd, out_fd, offset, &len, NULL, 0)) <= 0) {
+            if (errno == EINTR || errno == EAGAIN) {
+                //  Interrupted system call/try again
+                //  Just skip to the top of the loop abd try again
+                continue;
             }
-            total_bytes_sent += bytes_sent;
+            printf("Sendfile error, errno = %d", errno);
+            close(in_fd);
+            return -1;
         }
-        close(in_fd);
+        total_bytes_sent += bytes_sent;
     }
-    else {
-        printf("HI");
-        send(out_fd, "", 0, 0);
-    }
+    close(in_fd);
     return total_bytes_sent;
 }
 
