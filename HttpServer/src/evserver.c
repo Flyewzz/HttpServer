@@ -31,6 +31,7 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         free(watcher);
         if (DEBUG_MODE) {
             perror("Read error\n");
+            printf("Socket with fd = %d closed on worker %d\n", watcher->fd, getpid());
         }
         return;
     }
@@ -41,6 +42,7 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         free(watcher);
         if (DEBUG_MODE) {
             perror("Peer might closing\n");
+            printf("Socket with fd = %d closed on worker %d\n", watcher->fd, getpid());
         }
         return;
     }
@@ -66,6 +68,9 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
     ev_io_stop(loop, watcher);
     close(watcher->fd);
     free(response);
+    if (DEBUG_MODE) {
+        printf("Socket with fd = %d closed on worker %d\n", watcher->fd, getpid());
+    }
 }
 
 void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {

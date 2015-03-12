@@ -274,10 +274,11 @@ off_t do_sendfile(int out_fd, int in_fd, off_t offset, off_t count) {
                 total_bytes_sent += len;
                 continue;
             }
+            close(in_fd);
             if (DEBUG_MODE) {
                 printf("Sendfile error, errno = %d\n", errno);
+                printf("Socket with fd = %d closed on worker %d\n", in_fd, getpid());
             }
-            close(in_fd);
             return -1;
         }
         total_bytes_sent += len;
@@ -285,6 +286,7 @@ off_t do_sendfile(int out_fd, int in_fd, off_t offset, off_t count) {
     close(in_fd);
     if (DEBUG_MODE) {
         printf("Success with %lld bytes sent\n", total_bytes_sent);
+        printf("Socket with fd = %d closed on worker %d\n", in_fd, getpid());
     }
     return total_bytes_sent;
 }
