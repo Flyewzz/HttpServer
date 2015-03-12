@@ -10,6 +10,38 @@
 #include "httphandler.h"
 #include <netinet/in.h>
 
+struct write_chunk {
+    int fd;
+    off_t offset;
+    off_t size;
+};
+
+void write_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
+    if (EV_ERROR & revents) {
+        if (DEBUG_MODE) {
+            perror("Got invalid event\n");
+        }
+        return;
+    }
+    struct write_chunk *w_chunk_info = (struct write_chunk *)watcher->data;
+    off_t bytes_sent = do_sendfile(watcher->fd, w_chunk_info->fd, w_chunk_info->offset, w_chunk_info->size);
+    if (bytes_sent != -1) {
+        w_chunk_info->offset += bytes_sent;
+    }
+    if (bytes_sent == -1 || w_chunk_info->offset == w_chunk_info->size) {
+        ev_io_stop(loop, watcher);
+        close(w_chunk_info->fd);
+        close(watcher->fd);
+        if (DEBUG_MODE) {
+            printf("Summary: successfully sent %lld bytes from fd = %d to socket with fd = %d\n", w_chunk_info->offset, w_chunk_info->fd, watcher->fd);
+            printf("File with fd = %d closed on worker %d\n", w_chunk_info->fd, getpid());
+            printf("Socket with fd = %d closed on worker %d\n", watcher->fd, getpid());
+        }
+        free(watcher->data);
+        free(watcher);
+    }
+}
+
 void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
     char buffer[BUFFER_SIZE];
     bzero(buffer, BUFFER_SIZE);
@@ -59,19 +91,29 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         send(watcher->fd, (char *)response[0], strlen((char *)response[0]), 0);
     }
     struct http_response *resp = (struct http_response *)response[1];
+    ev_io_stop(loop, watcher);
     if (resp->data_fd != -1) {
         if (DEBUG_MODE) {
             printf("data_fd: %d, data_size: %lld\n", resp->data_fd, resp->data_size);
         }
-        do_sendfile(watcher->fd, resp->data_fd, 0, resp->data_size);
+        struct write_chunk *w_chunk_info = (struct write_chunk *)malloc(sizeof(struct write_chunk));
+        w_chunk_info->fd = resp->data_fd;
+        w_chunk_info->offset =  0;
+        w_chunk_info->size = resp->data_size;
+        struct ev_io *w_watcher = (struct ev_io *)malloc(sizeof(struct ev_io));
+        w_watcher->data = w_chunk_info;
+        w_watcher->fd = watcher->fd;
+        ev_io_init(w_watcher, write_cb, w_watcher->fd, EV_WRITE);
+        ev_io_start(loop, w_watcher);
     }
-    ev_io_stop(loop, watcher);
-    close(watcher->fd);
+    else {
+        close(watcher->fd);
+        free(response);
+        if (DEBUG_MODE) {
+            printf("Socket with fd = %d closed on worker %d\n", watcher->fd, getpid());
+        }
+    }
     free(watcher);
-    free(response);
-    if (DEBUG_MODE) {
-        printf("Socket with fd = %d closed on worker %d\n", watcher->fd, getpid());
-    }
 }
 
 void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {

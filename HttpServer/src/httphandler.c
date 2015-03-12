@@ -265,29 +265,26 @@ void generate_response(struct http_request *req, struct http_response *resp, cha
 off_t do_sendfile(int out_fd, int in_fd, off_t offset, off_t count) {
     int success;
     off_t len = count - offset;
-    while (offset < count) {
-        if ((success = sendfile(in_fd, out_fd, offset, &len, NULL, 0)) == -1) {
-            if (errno == EINTR || errno == EAGAIN) {
-                //  Interrupted system call/try again
-                //  Just skip to the top of the loop abd try again
-                offset += len;
-                continue;
-            }
-            close(in_fd);
+    if ((success = sendfile(in_fd, out_fd, offset, &len, NULL, 0)) == -1) {
+        if (errno == EINTR || errno == EAGAIN) {
+            //  Interrupted system call/try again
+            //  Just skip to the top of the loop abd try again
             if (DEBUG_MODE) {
-                printf("Sendfile error, errno = %d\n", errno);
-                printf("File with fd = %d closed on worker %d\n", in_fd, getpid());
+                if (len > 0) {
+                    printf("Success with %lld bytes sent from fd = %d to socket with fd = %d\n", len, in_fd, out_fd);
+                }
             }
-            return -1;
+            return len;
         }
-        offset += len;
+        if (DEBUG_MODE) {
+            printf("Sendfile error, errno = %d\n", errno);
+        }
+        return -1;
     }
-    close(in_fd);
     if (DEBUG_MODE) {
-        printf("Success with %lld bytes sent\n", offset);
-        printf("File with fd = %d closed on worker %d\n", in_fd, getpid());
+        printf("Success with %lld bytes sent from fd = %d to socket with fd = %d\n", len, in_fd, out_fd);
     }
-    return offset;
+    return len;
 }
 
 char *delete_query_string(char *url) {
