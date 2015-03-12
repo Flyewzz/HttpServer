@@ -67,6 +67,7 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
     }
     ev_io_stop(loop, watcher);
     close(watcher->fd);
+    free(watcher);
     free(response);
     if (DEBUG_MODE) {
         printf("Socket with fd = %d closed on worker %d\n", watcher->fd, getpid());
@@ -82,6 +83,7 @@ void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         if (DEBUG_MODE) {
             perror("Got invalid event\n");
         }
+        free(w_client);
         return;
     }
     client_sd = accept(watcher->fd, (struct sockaddr *)&client_addr, &client_len);
@@ -89,6 +91,7 @@ void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         if (DEBUG_MODE) {
             perror("Accept error\n");
         }
+        free(w_client);
         return;
     }
     bool flag = true;

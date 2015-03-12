@@ -264,31 +264,30 @@ void generate_response(struct http_request *req, struct http_response *resp, cha
 
 off_t do_sendfile(int out_fd, int in_fd, off_t offset, off_t count) {
     int success;
-    off_t total_bytes_sent = 0;
-    off_t len = count - total_bytes_sent;
-    while (total_bytes_sent < count) {
+    off_t len = count - offset;
+    while (offset < count) {
         if ((success = sendfile(in_fd, out_fd, offset, &len, NULL, 0)) == -1) {
             if (errno == EINTR || errno == EAGAIN) {
                 //  Interrupted system call/try again
                 //  Just skip to the top of the loop abd try again
-                total_bytes_sent += len;
+                offset += len;
                 continue;
             }
             close(in_fd);
             if (DEBUG_MODE) {
                 printf("Sendfile error, errno = %d\n", errno);
-                printf("Socket with fd = %d closed on worker %d\n", in_fd, getpid());
+                printf("File with fd = %d closed on worker %d\n", in_fd, getpid());
             }
             return -1;
         }
-        total_bytes_sent += len;
+        offset += len;
     }
     close(in_fd);
     if (DEBUG_MODE) {
-        printf("Success with %lld bytes sent\n", total_bytes_sent);
-        printf("Socket with fd = %d closed on worker %d\n", in_fd, getpid());
+        printf("Success with %lld bytes sent\n", offset);
+        printf("File with fd = %d closed on worker %d\n", in_fd, getpid());
     }
-    return total_bytes_sent;
+    return offset;
 }
 
 char *delete_query_string(char *url) {
