@@ -26,6 +26,9 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
         printf("read = %zd\n", read);
     }
     if (read == -1) {
+        ev_io_stop(loop, watcher);
+        close(watcher->fd);
+        free(watcher);
         if (DEBUG_MODE) {
             perror("Read error\n");
         }
@@ -89,6 +92,10 @@ void accept_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
     ev_io_start(loop, w_client);
 }
 
+void signal_cb(struct ev_loop *loop, struct ev_signal *watcher, int revents) {
+    ev_break(loop, EVUNLOOP_ALL);
+}
+
 int set_nonblock(int sock, bool flag) {
     int fl = fcntl(sock, F_GETFL);
     if (fl == -1) {
@@ -103,13 +110,14 @@ int set_nonblock(int sock, bool flag) {
     return fcntl(sock, F_SETFL, fl);
 }
 
-void create_workers() {
+int create_workers() {
     int pid = 1;
     for (int i = 0; i < CORES - 1; ++i) {
         if (pid > 0) {
             pid = fork();
         }
     }
+    return pid;
 }
 
 void start_server() {
@@ -155,7 +163,7 @@ void start_server() {
         printf("Server is listening with fd = %d on port %d\n", sock, SERVER_PORT);
     }
     
-    create_workers();
+    int pid = create_workers();
     if (DEBUG_MODE) {
         printf("Hi from worker with pid %d and ppid %d\n", getpid(), getppid());
     }
@@ -166,5 +174,22 @@ void start_server() {
     ev_io_init(&w_accept, accept_cb, sock, EV_READ);
     ev_io_start(loop, &w_accept);
     
+    struct ev_signal sigint_watcher;
+    ev_signal_init(&sigint_watcher, signal_cb, SIGINT);
+    ev_signal_start(loop, &sigint_watcher);
+
+    struct ev_signal sigterm_watcher;
+    ev_signal_init(&sigterm_watcher, signal_cb, SIGTERM);
+    ev_signal_start(loop, &sigterm_watcher);
+    
     ev_loop(loop, 0);
+    if (DEBUG_MODE) {
+        printf("Bye from worker with pid %d and ppid %d\n", getpid(), getppid());
+    }
+    if (pid != 0) {
+        close(sock);
+        if (DEBUG_MODE) {
+            printf("Socket with fd = %d closed\n", sock);
+        }
+    }
 }

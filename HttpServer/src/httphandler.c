@@ -115,28 +115,28 @@ file_type get_file_type(char *file_path) {
         while ((dot = strchr(pos, '.'))) {
             pos = dot + 1;
         }
-        if (!strcmp(pos, "html")) {
+        if (!strcasecmp(pos, "html")) {
             return html;
         }
-        if (!strcmp(pos, "css")) {
+        if (!strcasecmp(pos, "css")) {
             return css;
         }
-        if (!strcmp(pos, "js")) {
+        if (!strcasecmp(pos, "js")) {
             return js;
         }
-        if (!strcmp(pos, "jpg")) {
+        if (!strcasecmp(pos, "jpg")) {
             return jpg;
         }
-        if (!strcmp(pos, "jpeg")) {
+        if (!strcasecmp(pos, "jpeg")) {
             return jpeg;
         }
-        if (!strcmp(pos, "png")) {
+        if (!strcasecmp(pos, "png")) {
             return png;
         }
-        if (!strcmp(pos, "gif")) {
+        if (!strcasecmp(pos, "gif")) {
             return gif;
         }
-        if (!strcmp(pos, "swf")) {
+        if (!strcasecmp(pos, "swf")) {
             return swf;
         }
     }
@@ -170,12 +170,15 @@ char *get_content_type(file_type type) {
             return "Content-Type: application/x-shockwave-flash\r\n";
 
         default:
-            return "Content-Type: application/text\r\n";
+            return "Content-Type: text/plain\r\n";
     }
 }
 
-char *get_connection_header() {
-    return "Connection: close\r\n";
+char *get_connection_header(http_version version) {
+    if (version == _11) {
+        return "Connection: keep-alive\r\n";
+    }
+    return "";
 }
 
 void generate_response(struct http_request *req, struct http_response *resp, char **headers) {
@@ -255,29 +258,34 @@ void generate_response(struct http_request *req, struct http_response *resp, cha
     }
     strcat(*headers, get_date_header());
     strcat(*headers, get_server_header());
-    strcat(*headers, get_connection_header());
+    strcat(*headers, get_connection_header(req->version));
     strcat(*headers, "\r\n");
 }
 
 off_t do_sendfile(int out_fd, int in_fd, off_t offset, off_t count) {
-    off_t bytes_sent;
+    int success;
     off_t total_bytes_sent = 0;
-    printf("arght: %d", in_fd);
+    off_t len = count - total_bytes_sent;
     while (total_bytes_sent < count) {
-        off_t len = count - total_bytes_sent;
-        if ((bytes_sent = sendfile(in_fd, out_fd, offset, &len, NULL, 0)) <= 0) {
+        if ((success = sendfile(in_fd, out_fd, offset, &len, NULL, 0)) == -1) {
             if (errno == EINTR || errno == EAGAIN) {
                 //  Interrupted system call/try again
                 //  Just skip to the top of the loop abd try again
+                total_bytes_sent += len;
                 continue;
             }
-            printf("Sendfile error, errno = %d", errno);
+            if (DEBUG_MODE) {
+                printf("Sendfile error, errno = %d\n", errno);
+            }
             close(in_fd);
             return -1;
         }
-        total_bytes_sent += bytes_sent;
+        total_bytes_sent += len;
     }
     close(in_fd);
+    if (DEBUG_MODE) {
+        printf("Success with %lld bytes sent\n", total_bytes_sent);
+    }
     return total_bytes_sent;
 }
 
