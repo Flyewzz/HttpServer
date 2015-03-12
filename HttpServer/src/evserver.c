@@ -51,12 +51,16 @@ void read_cb(struct ev_loop *loop, struct ev_io *watcher, int revents) {
     }
     void **response = get_response(buffer);
     if (response[0]) {
-        printf("response_headers: '%s'\n", response[0]);
+        if (DEBUG_MODE) {
+            printf("response_headers: '%s'\n", response[0]);
+        }
         send(watcher->fd, (char *)response[0], strlen((char *)response[0]), 0);
     }
     struct http_response *resp = (struct http_response *)response[1];
     if (resp->data_fd != -1) {
-        printf("data_fd: %d, data_size: %lld\n", resp->data_fd, resp->data_size);
+        if (DEBUG_MODE) {
+            printf("data_fd: %d, data_size: %lld\n", resp->data_fd, resp->data_size);
+        }
         do_sendfile(watcher->fd, resp->data_fd, 0, resp->data_size);
     }
     ev_io_stop(loop, watcher);
